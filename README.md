@@ -15,7 +15,7 @@ The same pages are described, with screenshots, under [Full Examples](https://do
 | `inquiry.html` | A contact form that sends a message to you, the project owner. |
 | `database.html` | A photo gallery: upload posts with files, like, comment, subscribe to other users and query posts in different ways. |
 | `realtime.html` | Group chat and private messages over a WebSocket connection. |
-| `webrtc.html` | Video calls, screen sharing and a text data channel between two users with WebRTC. |
+| `webrtc.html` | Video calls, screen sharing, text chat and file transfer between two users with WebRTC. |
 | `drawing.html` | Two users draw on one canvas; every stroke travels over a WebRTC data channel. |
 
 Every page is a short HTML file with the form or demo, a few lines of script, and comments that say which Skapi method does what.

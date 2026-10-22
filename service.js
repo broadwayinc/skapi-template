@@ -41,6 +41,16 @@ function isTemplatePage(href) {
     return /^[a-z-]+\.html([?#].*)?$/.test(href || "");
 }
 
+/*
+    Enter pressed while a phone keyboard is still composing a word (an IME, for Korean or Japanese for example)
+    confirms the word; it must not submit the form with half of it.
+*/
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.isComposing || event.keyCode === 229) && event.target.matches("input, textarea")) {
+        event.preventDefault();
+    }
+});
+
 document.addEventListener("DOMContentLoaded", () => {
     for (let a of document.querySelectorAll("a[href]")) {
         if (isTemplatePage(a.getAttribute("href"))) {

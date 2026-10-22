@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
     <title>Shared Drawing | Skapi HTML Template</title>
     <link rel="stylesheet" href="main.css">
     <script src="https://cdn.jsdelivr.net/npm/skapi-js@latest/dist/skapi.js"></script>
@@ -28,9 +28,9 @@
             so this costs almost no bandwidth and both sides can draw at once.
         </p>
         <p>
-            <code>skapi.connectRTC()</code> opens the connection with a data channel named <code>drawing</code> and
-            no media, unless <strong>Voice</strong> is on, which adds the microphone. The callee gets an
-            <code>rtc:incoming</code> message whose <code>meta</code> says it is a drawing invitation.
+            <code>skapi.connectRTC()</code> opens the connection with two data channels and no media at all: one
+            named <code>drawing</code> for the strokes and the <code>text-chat</code> preset for the chat. The callee
+            gets an <code>rtc:incoming</code> message whose <code>meta</code> says it is a drawing invitation.
         </p>
         <p>
             Users find each other in the realtime group <code>RTCDraw</code>. Open this page in another browser or
@@ -41,13 +41,6 @@
 
         <section id="el_dl_userlist">
             <h2>Users online</h2>
-            <fieldset>
-                <legend>Draw with</legend>
-                <label>
-                    <input type="checkbox" id="allow_voice">
-                    Voice (adds the microphone to the connection)
-                </label>
-            </fieldset>
 
             <table>
                 <thead>
@@ -81,8 +74,19 @@
             <canvas id="board" class="board" width="800" height="500" aria-label="Shared drawing board"></canvas>
             <p id="boardStatus" role="status"></p>
 
-            <!-- The other user's voice, when the microphone is on. -->
-            <audio id="remoteAudio" autoplay></audio>
+            <!-- Text goes over the connection's data channel, directly between the two browsers. -->
+            <div class="chat-panel">
+                <form class="chat-form" onsubmit="sendChat(event)">
+                    <label class="chat-field">
+                        <span class="chat-label">Chat</span>
+                        <input type="text" id="chatInput" name="message" placeholder="Type a message and press Enter" autocomplete="off" required>
+                    </label>
+                    <span class="chat-actions">
+                        <button type="submit">Send</button>
+                    </span>
+                </form>
+                <div id="chatLog" class="chat-log" role="log" aria-live="polite" data-empty="No messages yet."></div>
+            </div>
         </section>
     </main>
 
@@ -92,7 +96,7 @@
     </dialog>
 
     <dialog id="el_dl_incoming">
-        <p><span id="incomingFrom"></span> wants to draw with you<span id="incomingVoice"></span>.</p>
+        <p><span id="incomingFrom"></span> wants to draw with you.</p>
         <button type="button" onclick="acceptInvitation()">Accept</button>
         <button type="button" onclick="rejectInvitation()">Reject</button>
     </dialog>
@@ -106,6 +110,8 @@
         let channel = null; // The "drawing" data channel, once open
         let participants = {}; // user_id: profile
         let cidList = {}; // connection id: user_id
+        let myName = "You";
+        let peerName = "Them";
 
         const board = document.getElementById("board");
         const ctx = board.getContext("2d");
@@ -177,6 +183,60 @@
         }
 
         /*
+            Chat. The newest message is first in the log, right under the input.
+            Text goes over the "text-chat" data channel.
+        */
+        function addChatLine(name, text) {
+            let p = document.createElement("p");
+            let who = document.createElement("strong");
+            who.textContent = name + ": ";
+            p.append(who, text);
+            document.getElementById("chatLog").prepend(p);
+            revealNewest();
+            return p;
+        }
+
+        /*
+            A new line must not land outside the visible part of a scrolling log. The newest line is the first
+            in the log; it is at the top in the page layout and at the bottom in fullscreen (column-reverse),
+            so scroll to whichever end holds it.
+        */
+        function revealNewest() {
+            let log = document.getElementById("chatLog");
+            if (log.scrollHeight <= log.clientHeight) return;
+            let reversed = getComputedStyle(log).flexDirection === "column-reverse";
+            log.scrollTop = reversed ? log.scrollHeight : 0;
+        }
+
+        function sendChat(event) {
+            event.preventDefault();
+            let input = document.getElementById("chatInput");
+            let chat = rtcConnection?.channels?.["text-chat"];
+            if (!chat || chat.readyState !== "open") {
+                alert("The chat channel is not open.");
+                return;
+            }
+            chat.send(input.value);
+            addChatLine(myName, input.value);
+            clearForm(event.target);
+            hideKeyboard(input);
+        }
+
+        // Clears the text fields now and once more after the keyboard has settled: a word still being composed by
+        // a phone keyboard (an IME) can otherwise reappear in the field after the form was reset.
+        function clearForm(form) {
+            form.reset();
+            let fields = form.querySelectorAll("input[type=text], textarea");
+            for (let field of fields) field.value = "";
+            setTimeout(() => { for (let field of fields) field.value = ""; }, 0);
+        }
+
+        // On a phone the keyboard goes away after a message is sent; on a desktop the input keeps the focus.
+        function hideKeyboard(input) {
+            if (window.matchMedia("(pointer: coarse)").matches) input.blur();
+        }
+
+        /*
             Events of the RTC connection. The data channel's `open` and `message` events carry the channel's label,
             so a page with several channels can tell them apart.
         */
@@ -192,6 +252,10 @@
                     break;
 
                 case "message":
+                    if (e.label === "text-chat") {
+                        addChatLine(peerName, String(e.data));
+                        break;
+                    }
                     if (e.label !== "drawing") break;
                     try {
                         let message = JSON.parse(e.data);
@@ -202,14 +266,6 @@
                     }
                     break;
 
-                case "track":
-                    // The other user's microphone, when voice is on.
-                    if (e.track.kind === "audio") {
-                        let audio = document.getElementById("remoteAudio");
-                        audio.srcObject = e.streams?.[0] || new MediaStream([e.track]);
-                        audio.play().catch((err) => console.error(err));
-                    }
-                    break;
 
                 case "connectionstatechange": {
                     document.getElementById("el_dl_calling").close();
@@ -223,7 +279,7 @@
                         userList.hidden = false;
                         clearBoard(false);
                         document.getElementById("boardStatus").textContent = "";
-                        document.getElementById("remoteAudio").srcObject = null;
+                        document.getElementById("chatLog").replaceChildren();
                         channel = null;
                         rtcConnection = null;
                         call = null;
@@ -249,8 +305,9 @@
         }
 
         /*
-            Invite a user by their connection id. The connection carries one ordered, reliable data channel
-            named "drawing", and the microphone when Voice is on. `meta` tells the other side what this is.
+            Invite a user by their connection id. The connection carries an ordered, reliable data channel named
+            "drawing" for the strokes and the "text-chat" preset channel for the chat, and no media at all.
+            `meta` tells the other side what this is.
         */
         async function invite(cid) {
             if (call || rtcConnection || receiver) {
@@ -258,15 +315,14 @@
                 return;
             }
 
-            let voice = document.getElementById("allow_voice").checked;
+            peerName = displayName(participants[cidList[cid]]);
             call = await skapi.connectRTC({
                 cid,
-                media: { audio: voice },
-                channels: [{ protocol: "drawing", ordered: true }],
+                channels: [{ protocol: "drawing", ordered: true }, "text-chat"],
                 meta: { kind: "drawing" },
             }, RTCCallback);
 
-            document.getElementById("drawingWith").textContent = displayName(participants[cidList[cid]]);
+            document.getElementById("drawingWith").textContent = peerName;
             let dialog = document.getElementById("el_dl_calling");
             if (!dialog.open) {
                 dialog.showModal();
@@ -280,9 +336,8 @@
                 return;
             }
             try {
-                // The callee's own Voice box decides whether its microphone is added; the channel comes from the inviter.
-                let voice = document.getElementById("allow_voice").checked;
-                rtcConnection = await receiver.connectRTC({ media: { audio: voice } }, RTCCallback);
+                // The channels come from the inviter; this side sends nothing of its own.
+                rtcConnection = await receiver.connectRTC({}, RTCCallback);
                 document.getElementById("el_dl_incoming").close();
             } catch (err) {
                 alert(err.message);
@@ -383,9 +438,9 @@
             if (rt.type === "rtc:incoming") {
                 // An invitation. rt.meta.kind says what it is; rt.sources tells whether the inviter sends voice.
                 receiver = rt;
-                document.getElementById("drawingWith").textContent = displayName(participants[rt.sender]);
-                document.getElementById("incomingFrom").textContent = displayName(participants[rt.sender]);
-                document.getElementById("incomingVoice").textContent = (rt.sources || []).includes("microphone") ? ", with voice" : "";
+                peerName = displayName(participants[rt.sender]);
+                document.getElementById("drawingWith").textContent = peerName;
+                document.getElementById("incomingFrom").textContent = peerName;
                 let dialog = document.getElementById("el_dl_incoming");
                 if (!dialog.open) {
                     dialog.showModal();
@@ -408,6 +463,7 @@
                 return;
             }
             currentUser = user;
+            myName = displayName(user);
             await skapi.connectRealtime(realtimeCallback);
             await skapi.joinRealtime({ group: GROUP });
             await getRealtimeUsers();

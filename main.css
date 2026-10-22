@@ -184,6 +184,8 @@ button {
     border: 1px solid #333;
     border-radius: 0;
     background: #f3f3f3;
+    white-space: nowrap; /* a label never breaks, not even inside a narrow table cell that wraps its text anywhere */
+    overflow-wrap: normal;
     cursor: pointer;
 }
 
@@ -368,38 +370,310 @@ article h3 {
     flex: 1 1 14rem;
     max-width: calc(50% - .25rem);
     margin: 0;
+    cursor: pointer;
 }
 
+/* Every tile is 4:3; the picture sits centered inside it, never stretched (a 16:9 screen gets bars above and below). */
 .videos video {
     display: block;
     width: 100%;
     aspect-ratio: 4 / 3;
+    object-fit: contain;
     background: #000;
     border: 1px solid #ddd;
-}
-
-.videos figure.screen video {
-    aspect-ratio: 16 / 9;
 }
 
 .videos figcaption {
     color: #555;
 }
 
-.controls button {
+.controls button,
+.controls .file-button {
     margin: 0 .5rem .5rem 0;
 }
 
-#rtcMessages {
-    max-height: 10rem;
-    overflow: auto;
-    padding: .5rem;
-    border: 1px solid #ddd;
-    list-style: none;
+/* Chat under a call or a drawing: the input first, the newest message right under it, no fixed height */
+
+.chat-panel {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    margin: 0 0 1rem;
 }
 
-#rtcMessages li {
+/* The input always fills the width; the buttons never grow. When the row cannot hold the input's
+   minimum width and both buttons, the buttons wrap under it on their own. */
+.chat-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: flex-end;
+    margin: 0;
+}
+
+.chat-form .chat-field {
+    flex: 1 1 14rem;
+    min-width: 0;
+    margin: 0;
+}
+
+/* the two buttons move to the next line together, never one at a time */
+.chat-form .chat-actions {
+    display: flex;
+    flex: none;
+    gap: .5rem;
+}
+
+.file-button {
+    display: inline-block;
+    position: relative;
+    margin: 0;
+    padding: .4rem 1rem;
+    border: 1px solid #333;
+    background: #f3f3f3;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.file-button input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.chat-log {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    padding: .5rem;
+    border: 1px solid #ddd;
+    line-height: 1.5;
     overflow-wrap: anywhere;
+}
+
+.chat-log:empty::before {
+    content: attr(data-empty);
+    color: #555;
+}
+
+.chat-log p {
+    margin: 0;
+}
+
+.chat-log progress {
+    width: 8rem;
+    height: 1em;
+    vertical-align: middle;
+}
+
+/* a tile can be clicked: fullscreen from the page, onto the stage from a thumbnail */
+@media (hover: hover) {
+    #el_video_call:not(.fs) .tile:hover video {
+        border-color: #333;
+        outline: 2px solid #333;
+        outline-offset: -2px;
+    }
+
+    #el_video_call.fs .tile[data-fs="thumb"]:hover video {
+        outline: 2px solid #fff;
+        outline-offset: -2px;
+    }
+}
+
+/* Fullscreen call: the section fills the screen and main.css places the tiles by the data-fs each one gets */
+
+.has-fs {
+    overflow: hidden;
+}
+
+#el_video_call.fs {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    gap: .5rem;
+    margin: 0;
+    padding: .5rem;
+    overflow: hidden;
+    background: #000;
+    color: #eee;
+}
+
+#el_video_call.fs > h2,
+#el_video_call.fs figcaption {
+    display: none;
+}
+
+/* the call buttons sit right above the chat, as one compact wrapping row */
+#el_video_call.fs .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    min-width: 0;
+    margin: 0;
+}
+
+#el_video_call.fs .controls button,
+#el_video_call.fs .controls .file-button {
+    margin: 0;
+    padding: .25rem .6rem;
+}
+
+#el_video_call.fs .videos {
+    display: contents;
+}
+
+#el_video_call.fs .tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 0;
+    max-width: none;
+    margin: 0;
+}
+
+#el_video_call .tile[hidden],
+#el_video_call.fs .tile[data-fs="off"] {
+    display: none;
+}
+
+#el_video_call.fs .tile video {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    border: 0;
+    object-fit: contain;
+}
+
+/* in fullscreen the chat input sits under the log, so the newest message is at the bottom */
+#el_video_call.fs .chat-panel {
+    flex-direction: column-reverse;
+    min-height: 0;
+    margin: 0;
+}
+
+#el_video_call.fs .chat-log {
+    flex: 1 1 auto;
+    flex-direction: column-reverse;
+    min-height: 0;
+    overflow: auto;
+    border-color: #444;
+}
+
+#el_video_call.fs .chat-log a {
+    color: #9ec1ff;
+}
+
+/* the controls keep dark text on their light backgrounds; the label line goes, the placeholder says what the box is */
+#el_video_call.fs button,
+#el_video_call.fs .file-button,
+#el_video_call.fs input {
+    color: #222;
+}
+
+#el_video_call.fs .chat-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+
+/* wide screens: the chosen tile on the stage, the others as thumbnails above the chat on the right */
+@media (min-width: 56rem) {
+    #el_video_call.fs {
+        grid-template-columns: minmax(0, 1fr) minmax(18rem, 25%);
+        grid-template-rows: auto auto auto auto minmax(0, 1fr);
+    }
+
+    #el_video_call.fs .tile[data-fs="stage"] {
+        grid-column: 1;
+        grid-row: 1 / 6;
+    }
+
+    #el_video_call.fs .controls {
+        grid-column: 2;
+        grid-row: 4;
+    }
+
+    #el_video_call.fs .tile[data-fs="thumb"] {
+        grid-column: 2;
+    }
+
+    /* thumbnails stay small enough for the chat to keep its share of the height */
+    #el_video_call.fs .tile[data-fs="thumb"] video {
+        height: auto;
+        max-height: 20vh;
+        aspect-ratio: 4 / 3;
+    }
+
+    #el_video_call.fs .chat-panel {
+        grid-column: 2;
+        grid-row: 5;
+    }
+}
+
+/* phones and small screens: one tile per user, a chat of exactly three lines (three line boxes, the two gaps between them, the padding and the border) */
+@media (max-width: 55.99rem) {
+    #el_video_call.fs .chat-log {
+        flex: none;
+        height: calc(3 * 1.5em + 2 * .25rem + 1rem + 2px);
+    }
+}
+
+@media (max-width: 55.99rem) and (orientation: portrait) {
+    #el_video_call.fs {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+    }
+
+    #el_video_call.fs .tile[data-user="them"][data-fs="shown"] {
+        grid-row: 1;
+    }
+
+    #el_video_call.fs .tile[data-user="me"][data-fs="shown"] {
+        grid-row: 2;
+    }
+
+    #el_video_call.fs .controls {
+        grid-row: 3;
+    }
+
+    #el_video_call.fs .chat-panel {
+        grid-row: 4;
+    }
+}
+
+@media (max-width: 55.99rem) and (orientation: landscape) {
+    #el_video_call.fs {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto auto;
+    }
+
+    #el_video_call.fs .tile[data-user="them"][data-fs="shown"] {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    #el_video_call.fs .tile[data-user="me"][data-fs="shown"] {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    #el_video_call.fs .controls {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    #el_video_call.fs .chat-panel {
+        grid-column: 1 / -1;
+        grid-row: 3;
+    }
 }
 
 /* Drawing page: the shared canvas and the pen colors */
@@ -439,7 +713,7 @@ article h3 {
     }
 
     .chat {
-        flex-direction: column;
+        flex-direction: column-reverse;
     }
 
     #participants {

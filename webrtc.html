@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
     <title>RTC Video Chat | Skapi HTML Template</title>
     <link rel="stylesheet" href="main.css">
     <script src="https://cdn.jsdelivr.net/npm/skapi-js@latest/dist/skapi.js"></script>
@@ -23,42 +23,22 @@
     <main>
         <h1>RTC Video Chat</h1>
         <p>
-            WebRTC connects two browsers directly for video, audio, the screen and data. Skapi does the signaling
-            over its realtime connection: <code>skapi.connectRTC()</code> calls another user, the callee receives an
-            <code>rtc:incoming</code> message and answers with <code>connectRTC()</code> on it, and Skapi negotiates
-            the peer connection between the two.
+            A video call between two users, straight from one browser to the other. <code>skapi.connectRTC()</code>
+            calls the other user with the camera and the microphone, the callee gets an <code>rtc:incoming</code>
+            message and answers with <code>connectRTC()</code> on it, and Skapi only carries the signaling. The screen,
+            text messages and files travel over the same connection.
         </p>
         <p>
-            The <code>media</code> option names what to send: the camera, the microphone, the screen, or any mix.
-            During a call, <code>share()</code> and <code>unshare()</code> add and remove the screen, and
-            <code>mute()</code> pauses the microphone or the camera. The other side tells the tracks apart by the
-            <code>source</code> of its <code>track</code> events.
-        </p>
-        <p>
-            Users find each other in the realtime group <code>RTCCall</code>. Open this page in another browser or
-            device with a different account and call each other. WebRTC works over HTTPS, or on localhost.
+            Allow the camera and the microphone when the browser asks. WebRTC works over HTTPS or on
+            <code>localhost</code>. Open this page in another browser or device with a second account: both users
+            appear in the list below. Click a video during the call to go fullscreen; Escape or the Back button
+            leaves it.
         </p>
 
         <!-- This page needs a logged in user (see LOGIN_REQUIRED in service.js). -->
 
         <section id="el_dl_calllist">
             <h2>Users online</h2>
-            <fieldset>
-                <legend>Call with</legend>
-                <label>
-                    <input type="checkbox" id="allow_video" checked>
-                    Video
-                </label>
-                <label>
-                    <input type="checkbox" id="allow_audio" checked>
-                    Audio
-                </label>
-                <label>
-                    <input type="checkbox" id="allow_screen">
-                    Screen (the browser asks which window or tab to share)
-                </label>
-            </fieldset>
-
             <table>
                 <thead>
                     <tr>
@@ -75,45 +55,55 @@
             </table>
         </section>
 
+        <!-- The call. In fullscreen the same section fills the screen; main.css lays it out by data-fs. -->
         <section id="el_video_call" hidden>
-            <h2>In a call</h2>
+            <h2>In a call with <span id="peerNameHeading"></span></h2>
 
-            <!-- One tile per stream. A tile is shown when its track arrives and hidden when it goes away. -->
+            <!-- One tile per stream, in this order: my camera, their camera, my screen, their screen. -->
             <div class="videos">
-                <figure id="tile_local_camera" hidden>
+                <figure class="tile" data-view="me-camera" data-user="me" data-kind="camera" hidden onclick="tileClick(this)">
                     <video id="localCamera" autoplay muted playsinline aria-label="Your camera"></video>
                     <figcaption>You</figcaption>
                 </figure>
-                <figure id="tile_local_screen" class="screen" hidden>
+                <figure class="tile" data-view="them-camera" data-user="them" data-kind="camera" hidden onclick="tileClick(this)">
+                    <video id="remoteCamera" autoplay playsinline aria-label="The other user's camera"></video>
+                    <figcaption id="capThem">Them</figcaption>
+                </figure>
+                <figure class="tile" data-view="me-screen" data-user="me" data-kind="screen" hidden onclick="tileClick(this)">
                     <video id="localScreen" autoplay muted playsinline aria-label="Your screen"></video>
                     <figcaption>Your screen</figcaption>
                 </figure>
-                <figure id="tile_remote_camera" hidden>
-                    <video id="remoteCamera" autoplay playsinline aria-label="The other user's camera"></video>
-                    <figcaption>Them</figcaption>
-                </figure>
-                <figure id="tile_remote_screen" class="screen" hidden>
+                <figure class="tile" data-view="them-screen" data-user="them" data-kind="screen" hidden onclick="tileClick(this)">
                     <video id="remoteScreen" autoplay playsinline aria-label="The other user's screen"></video>
-                    <figcaption>Their screen</figcaption>
+                    <figcaption id="capThemScreen">Their screen</figcaption>
                 </figure>
             </div>
 
             <p class="controls">
+                <label class="file-button">
+                    Send a file
+                    <input type="file" id="chatFile" onchange="sendChatFile(this)">
+                </label>
                 <button type="button" id="btn_screen" onclick="toggleScreen()">Share screen</button>
                 <button type="button" id="btn_mic" onclick="toggleMicrophone()">Mute microphone</button>
                 <button type="button" id="btn_camera" onclick="toggleCamera()">Turn camera off</button>
                 <button type="button" onclick="hangupRTC()">Hang up</button>
             </p>
 
-            <!-- Text messages go over the RTC data channel, directly between the two browsers. -->
-            <form onsubmit="sendRTCMessage(event)" class="inline-form">
-                <label>
-                    Message over the data channel
-                    <input type="text" id="el_input_rtcMessage" name="message" placeholder="Type a message" required>
-                </label>
-                <button type="submit">Send</button>
-            </form>
-            <ul id="rtcMessages" aria-label="Data channel messages" aria-live="polite"></ul>
+            <!-- Text and files go over the connection's data channels, directly between the two browsers. -->
+            <div class="chat-panel">
+                <form class="chat-form" onsubmit="sendChat(event)">
+                    <label class="chat-field">
+                        <span class="chat-label">Chat</span>
+                        <input type="text" id="chatInput" name="message" placeholder="Type a message and press Enter" autocomplete="off" required>
+                    </label>
+                    <span class="chat-actions">
+                        <button type="submit">Send</button>
+                    </span>
+                </form>
+                <div id="chatLog" class="chat-log" role="log" aria-live="polite" data-empty="No messages yet."></div>
+            </div>
+
         </section>
     </main>
 
@@ -136,29 +126,20 @@
         let rtcConnection = null; // The established connection
         let participants = {}; // user_id: profile
         let cidList = {}; // connection id: user_id
+        let myName = "You";
+        let peerName = "Them";
+
+        const VIEWS = ["me-camera", "them-camera", "me-screen", "them-screen"];
 
         function displayName(user) {
             return user?.name || user?.email || user?.user_id || "User";
         }
 
-        /*
-            What this side sends, from the checkboxes.
-            `screen` opens the browser's share picker; the contentHint keeps text on the screen sharp.
-        */
-        function mediaOptions() {
-            return {
-                audio: document.getElementById("allow_audio").checked,
-                video: document.getElementById("allow_video").checked,
-                screen: document.getElementById("allow_screen").checked ? { contentHint: "text" } : false,
-            };
-        }
-
-        // A word for the call, sent as `meta` so the other side can say what is coming in before answering.
-        function callKind(media) {
-            if (media.screen) return "screen share";
-            if (media.video) return "video call";
-            if (media.audio) return "voice call";
-            return "data call";
+        function setPeer(user) {
+            peerName = displayName(user);
+            document.getElementById("peerNameHeading").textContent = peerName;
+            document.getElementById("capThem").textContent = peerName;
+            document.getElementById("capThemScreen").textContent = peerName + " (screen)";
         }
 
         // The `sources` of an incoming call name what the caller sends: camera, microphone, screen.
@@ -168,28 +149,33 @@
             return "They send their " + names.join(", ").replace(/, ([^,]*)$/, " and $1") + ".";
         }
 
-        function appendRTCMessage(from, text) {
-            let li = document.createElement("li");
-            let name = document.createElement("strong");
-            name.textContent = from + ": ";
-            li.append(name, text);
-            let list = document.getElementById("rtcMessages");
-            list.appendChild(li);
-            list.scrollTop = list.scrollHeight;
+        /*
+            Tiles. A tile is shown when its track exists and hidden when it goes away.
+        */
+        function tile(view) {
+            return document.querySelector(`.tile[data-view="${view}"]`);
         }
 
-        function showTile(id, video, stream) {
-            document.getElementById(id).hidden = false;
-            let el = document.getElementById(video);
-            if (el.srcObject !== stream) {
-                el.srcObject = stream;
-                el.play().catch((err) => console.error(err));
+        function hasTile(view) {
+            return !tile(view).hidden;
+        }
+
+        function showTile(view, stream) {
+            let t = tile(view);
+            t.hidden = false;
+            let video = t.querySelector("video");
+            if (video.srcObject !== stream) {
+                video.srcObject = stream;
+                video.play().catch((err) => console.error(err));
             }
+            layoutFullscreen();
         }
 
-        function hideTile(id, video) {
-            document.getElementById(id).hidden = true;
-            document.getElementById(video).srcObject = null;
+        function hideTile(view) {
+            let t = tile(view);
+            t.hidden = true;
+            t.querySelector("video").srcObject = null;
+            layoutFullscreen();
         }
 
         /*
@@ -202,11 +188,11 @@
             let screen = rtcConnection.tracks("screen");
             let microphone = rtcConnection.tracks("microphone");
 
-            if (camera.length) showTile("tile_local_camera", "localCamera", new MediaStream(camera));
-            else hideTile("tile_local_camera", "localCamera");
+            if (camera.length) showTile("me-camera", new MediaStream(camera));
+            else hideTile("me-camera");
 
-            if (screen.length) showTile("tile_local_screen", "localScreen", new MediaStream(screen));
-            else hideTile("tile_local_screen", "localScreen");
+            if (screen.length) showTile("me-screen", new MediaStream(screen));
+            else hideTile("me-screen");
 
             document.getElementById("btn_screen").textContent = screen.length ? "Stop sharing" : "Share screen";
             document.getElementById("btn_mic").hidden = !microphone.length;
@@ -214,8 +200,117 @@
         }
 
         /*
-            Events of the RTC connection: the peer connection state, the incoming media and the data channel.
-            Every track event carries `source`: what the other side says the track is.
+            Chat. The newest message is first in the log, right under the input.
+            Text goes over the connection's default data channel; files go through rtcConnection.sendFile().
+        */
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + " B";
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+            return (bytes / 1024 / 1024).toFixed(1) + " MB";
+        }
+
+        function addChatLine(name, text) {
+            let p = document.createElement("p");
+            let who = document.createElement("strong");
+            who.textContent = name + ": ";
+            p.append(who, text);
+            document.getElementById("chatLog").prepend(p);
+            revealNewest();
+            return p;
+        }
+
+        /*
+            A new line must not land outside the visible part of a scrolling log. The newest line is the first
+            in the log; it is at the top in the page layout and at the bottom in fullscreen (column-reverse),
+            so scroll to whichever end holds it.
+        */
+        function revealNewest() {
+            let log = document.getElementById("chatLog");
+            if (log.scrollHeight <= log.clientHeight) return;
+            let reversed = getComputedStyle(log).flexDirection === "column-reverse";
+            log.scrollTop = reversed ? log.scrollHeight : 0;
+        }
+
+        function sendChat(event) {
+            event.preventDefault();
+            let input = document.getElementById("chatInput");
+            let channel = rtcConnection?.channels?.default;
+            if (!channel || channel.readyState !== "open") {
+                alert("The data channel is not open.");
+                return;
+            }
+            channel.send(input.value);
+            addChatLine(myName, input.value);
+            clearForm(event.target);
+            hideKeyboard(input);
+        }
+
+        // Clears the text fields now and once more after the keyboard has settled: a word still being composed by
+        // a phone keyboard (an IME) can otherwise reappear in the field after the form was reset.
+        function clearForm(form) {
+            form.reset();
+            let fields = form.querySelectorAll("input[type=text], textarea");
+            for (let field of fields) field.value = "";
+            setTimeout(() => { for (let field of fields) field.value = ""; }, 0);
+        }
+
+        // On a phone the keyboard goes away after a message is sent; on a desktop the input keeps the focus.
+        function hideKeyboard(input) {
+            if (window.matchMedia("(pointer: coarse)").matches) input.blur();
+        }
+
+        // sendFile() chunks the file over a reliable data channel the SDK opens itself; nothing is stored anywhere.
+        async function sendChatFile(input) {
+            let file = input.files[0];
+            input.value = "";
+            if (!file || !rtcConnection) return;
+
+            let line = addChatLine(myName, `${file.name} (${formatSize(file.size)}) `);
+            let progress = document.createElement("progress");
+            progress.max = file.size || 1;
+            progress.value = 0;
+            line.appendChild(progress);
+            try {
+                await rtcConnection.sendFile(file, { onProgress: (sent) => { progress.value = sent; } });
+                progress.replaceWith("sent");
+            } catch (err) {
+                progress.replaceWith("failed: " + err.message);
+            }
+        }
+
+        // The receiving side: a fileprogress event per chunk of progress, then a file event with the File.
+        function fileLine(e) {
+            let log = document.getElementById("chatLog");
+            let line = log.querySelector(`[data-file="${e.id}"]`);
+            if (!line) {
+                line = addChatLine(peerName, `${e.name} (${formatSize(e.size)}) `);
+                line.dataset.file = e.id;
+                let progress = document.createElement("progress");
+                progress.max = e.size || 1;
+                line.appendChild(progress);
+            }
+            return line;
+        }
+
+        function fileProgress(e) {
+            let progress = fileLine(e).querySelector("progress");
+            if (progress) progress.value = e.received;
+        }
+
+        function fileReceived(e) {
+            let line = fileLine(e);
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(e.file);
+            link.download = e.name;
+            link.textContent = "Download";
+            let progress = line.querySelector("progress");
+            if (progress) progress.replaceWith(link);
+            else line.append(" ", link);
+        }
+
+        /*
+            Events of the RTC connection: the peer connection state, the incoming media, the data channels
+            and the files. Every track event carries `source`: what the other side says the track is.
         */
         function RTCCallback(e) {
             console.log("RTC:", e);
@@ -224,19 +319,22 @@
                 case "track": {
                     // The other user's media. The screen gets its own tile; camera and microphone share one.
                     let stream = e.streams?.[0] || new MediaStream([e.track]);
-                    if (e.source === "screen") showTile("tile_remote_screen", "remoteScreen", stream);
-                    else showTile("tile_remote_camera", "remoteCamera", stream);
+                    showTile(e.source === "screen" ? "them-screen" : "them-camera", stream);
+                    if (e.source === "screen") showTheirScreen();
                     break;
                 }
 
                 case "trackmute":
                 case "trackended":
                     // The other side stopped sharing its screen.
-                    if (e.source === "screen") hideTile("tile_remote_screen", "remoteScreen");
+                    if (e.source === "screen") hideTile("them-screen");
                     break;
 
                 case "trackunmute":
-                    if (e.source === "screen") showTile("tile_remote_screen", "remoteScreen", e.streams?.[0] || new MediaStream([e.track]));
+                    if (e.source === "screen") {
+                        showTile("them-screen", e.streams?.[0] || new MediaStream([e.track]));
+                        showTheirScreen();
+                    }
                     break;
 
                 case "unshare":
@@ -252,12 +350,11 @@
                     let callList = document.getElementById("el_dl_calllist");
                     if (["disconnected", "failed", "closed"].includes(e.state)) {
                         // Also when the other user rejected or hung up.
+                        exitFullscreen(false);
                         videoCall.hidden = true;
                         callList.hidden = false;
-                        document.getElementById("rtcMessages").replaceChildren();
-                        for (let [tile, video] of [["tile_local_camera", "localCamera"], ["tile_local_screen", "localScreen"], ["tile_remote_camera", "remoteCamera"], ["tile_remote_screen", "remoteScreen"]]) {
-                            hideTile(tile, video);
-                        }
+                        document.getElementById("chatLog").replaceChildren();
+                        for (let view of VIEWS) hideTile(view);
                         document.getElementById("btn_mic").textContent = "Mute microphone";
                         document.getElementById("btn_camera").textContent = "Turn camera off";
                         rtcConnection = null;
@@ -272,8 +369,16 @@
                 }
 
                 case "message":
-                    // A data channel message from the other user.
-                    appendRTCMessage("Them", String(e.data));
+                    // A text message from the other user, over the default data channel.
+                    if (e.label === "default") addChatLine(peerName, String(e.data));
+                    break;
+
+                case "fileprogress":
+                    fileProgress(e);
+                    break;
+
+                case "file":
+                    fileReceived(e);
                     break;
             }
         }
@@ -313,19 +418,6 @@
             document.getElementById("btn_camera").textContent = on ? "Turn camera on" : "Turn camera off";
         }
 
-        function sendRTCMessage(event) {
-            event.preventDefault();
-            let input = document.getElementById("el_input_rtcMessage");
-            let channel = rtcConnection?.channels?.default;
-            if (!channel || channel.readyState !== "open") {
-                alert("The data channel is not open.");
-                return;
-            }
-            channel.send(input.value);
-            appendRTCMessage("You", input.value);
-            event.target.reset();
-        }
-
         function hangupRTC() {
             if (rtcConnection?.hangup) {
                 rtcConnection.hangup();
@@ -337,7 +429,122 @@
         }
 
         /*
-            Call a user by their connection id.
+            Fullscreen. Clicking a tile puts the call section in fullscreen (the browser's Fullscreen API where it
+            is allowed, a full-window overlay elsewhere). main.css lays it out from the data-fs attribute each tile gets:
+            - wide screens: one tile on the stage ("stage"), the others as thumbnails ("thumb") beside the chat;
+            - phones: one tile per user ("shown"), a tap on it switches between that user's screen and camera.
+            Escape and the browser's Back button leave fullscreen.
+        */
+        const fs = { on: false, pushed: false, stage: "them-camera", mobile: { me: "camera", them: "camera" } };
+        const wideScreen = window.matchMedia("(min-width: 56rem)");
+
+        // A screen the other side starts sharing while this side is in fullscreen takes over their view.
+        function showTheirScreen() {
+            if (!fs.on) return;
+            fs.stage = "them-screen";
+            fs.mobile.them = "screen";
+            layoutFullscreen();
+        }
+
+        function tileClick(t) {
+            let { view, user, kind } = t.dataset;
+            if (!fs.on) {
+                fs.stage = view;
+                fs.mobile[user] = kind;
+                enterFullscreen();
+                return;
+            }
+            if (wideScreen.matches) {
+                fs.stage = view;
+            } else {
+                let other = kind === "camera" ? "screen" : "camera";
+                if (hasTile(`${user}-${other}`)) fs.mobile[user] = other;
+            }
+            layoutFullscreen();
+        }
+
+        function enterFullscreen() {
+            let section = document.getElementById("el_video_call");
+            fs.on = true;
+            section.classList.add("fs");
+            document.body.classList.add("has-fs");
+            if (section.requestFullscreen) {
+                section.requestFullscreen().catch((err) => console.log("Fullscreen API not available, using the overlay:", err.message));
+            }
+            history.pushState({ rtcFullscreen: true }, ""); // so the Back button leaves fullscreen instead of the page
+            fs.pushed = true;
+            layoutFullscreen();
+            fitFullscreenToViewport();
+        }
+
+        function exitFullscreen(fromHistory) {
+            if (!fs.on) return;
+            fs.on = false;
+            document.getElementById("el_video_call").classList.remove("fs");
+            document.body.classList.remove("has-fs");
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => { });
+            }
+            let pushed = fs.pushed;
+            fs.pushed = false;
+            if (!fromHistory && pushed) history.back();
+            layoutFullscreen();
+            fitFullscreenToViewport();
+        }
+
+        /*
+            A phone keyboard shrinks only the visible part of the page; a fixed, full-height section keeps its
+            height and its bottom, with the chat input, ends up behind the keyboard. While fullscreen is on, the
+            section is padded down to the visual viewport instead, so the input stays above the keyboard.
+            (Padding, not top and height: in the browser's own fullscreen mode those are pinned by the browser.)
+        */
+        function fitFullscreenToViewport(vv = window.visualViewport) {
+            let section = document.getElementById("el_video_call");
+            if (!fs.on || !vv) {
+                section.style.paddingTop = "";
+                section.style.paddingBottom = "";
+                return;
+            }
+            let below = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+            section.style.paddingTop = `calc(.5rem + ${Math.max(0, vv.offsetTop)}px)`;
+            section.style.paddingBottom = `calc(.5rem + ${below}px)`;
+        }
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", () => fitFullscreenToViewport());
+            window.visualViewport.addEventListener("scroll", () => fitFullscreenToViewport());
+        }
+
+        window.addEventListener("popstate", () => {
+            if (fs.on) exitFullscreen(true);
+        });
+
+        document.addEventListener("fullscreenchange", () => {
+            if (!document.fullscreenElement && fs.on) exitFullscreen(false); // Escape, or the browser's own exit
+        });
+
+        wideScreen.addEventListener("change", () => layoutFullscreen());
+
+        function layoutFullscreen() {
+            let tiles = [...document.querySelectorAll("#el_video_call .tile")];
+            if (!fs.on) {
+                for (let t of tiles) delete t.dataset.fs;
+                return;
+            }
+            if (wideScreen.matches) {
+                if (!hasTile(fs.stage)) fs.stage = ["them-camera", "me-camera", "them-screen", "me-screen"].find(hasTile) || "them-camera";
+                for (let t of tiles) t.dataset.fs = t.hidden ? "off" : (t.dataset.view === fs.stage ? "stage" : "thumb");
+            } else {
+                for (let user of ["me", "them"]) {
+                    let other = fs.mobile[user] === "camera" ? "screen" : "camera";
+                    if (!hasTile(`${user}-${fs.mobile[user]}`) && hasTile(`${user}-${other}`)) fs.mobile[user] = other;
+                }
+                for (let t of tiles) t.dataset.fs = !t.hidden && fs.mobile[t.dataset.user] === t.dataset.kind ? "shown" : "off";
+            }
+        }
+
+        /*
+            Call a user by their connection id, with the camera and the microphone.
             call.connection resolves to the RTC connection once the other user accepts.
             A rejection shows up as a connectionstatechange event in RTCCallback.
         */
@@ -347,8 +554,8 @@
                 return;
             }
 
-            let media = mediaOptions();
-            call = await skapi.connectRTC({ cid, media, meta: { kind: callKind(media) } }, RTCCallback);
+            setPeer(participants[cidList[cid]]);
+            call = await skapi.connectRTC({ cid, media: { audio: true, video: true }, meta: { kind: "video call" } }, RTCCallback);
 
             let dialog = document.getElementById("el_dl_calling");
             if (!dialog.open) {
@@ -364,7 +571,7 @@
                 return;
             }
             try {
-                rtcConnection = await receiver.connectRTC({ media: mediaOptions() }, RTCCallback);
+                rtcConnection = await receiver.connectRTC({ media: { audio: true, video: true } }, RTCCallback);
                 document.getElementById("el_dl_incoming").close();
                 showLocalMedia();
             } catch (err) {
@@ -468,8 +675,9 @@
                 // Someone is calling. The message object is used to accept (connectRTC) or reject (hangup) the call.
                 // rt.meta is what the caller passed as `meta`; rt.sources names what the caller sends.
                 receiver = rt;
+                setPeer(participants[rt.sender]);
                 document.getElementById("incomingKind").textContent = rt.meta?.kind || "call";
-                document.getElementById("incomingFrom").textContent = displayName(participants[rt.sender]);
+                document.getElementById("incomingFrom").textContent = peerName;
                 document.getElementById("incomingSends").textContent = describeSources(rt.sources);
                 let dialog = document.getElementById("el_dl_incoming");
                 if (!dialog.open) {
@@ -493,6 +701,7 @@
                 return;
             }
             currentUser = user;
+            myName = displayName(user);
             await skapi.connectRealtime(realtimeCallback);
             await skapi.joinRealtime({ group: "RTCCall" });
             await getRealtimeUsers();

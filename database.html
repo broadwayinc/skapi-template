@@ -62,7 +62,8 @@
         </section>
 
         <section>
-            <h2>Posts</h2>
+            <!-- The heading names the view that is showing; initialFetch() sets it from the URL hash. -->
+            <h2 id="postsHeading">Most recent</h2>
             <!--
                 The links change the URL hash, and the hash decides how the posts are fetched.
                 See initialFetch() at the bottom of the page.
@@ -415,12 +416,16 @@
             }
 
             // Subscribe button, only on other users' posts. Its text is set once the subscription status is known.
+            // The button is set directly: the article is not in the document yet, so a document query would miss it.
             let subscribeButton = article.querySelector(".subscribe");
             if (!isMine) {
                 subscribeButton.hidden = false;
                 subscribeButton.dataset.userId = p.user_id;
                 subscribeButton.onclick = () => subscribe(p.user_id);
-                getSubscriptionStatus(p.user_id).then(() => updateSubscribeButtons(p.user_id)).catch((err) => console.error(err));
+                getSubscriptionStatus(p.user_id).then((subscribed) => {
+                    subscribeButton.textContent = subscribed ? "Unsubscribe" : "Subscribe";
+                    subscribeButton.disabled = pendingSubscriptions.has(p.user_id);
+                }).catch((err) => console.error(err));
             }
 
             // Like button. Enabled once we know whether the user has liked this post already.
@@ -621,6 +626,16 @@
             }
 
             let hash = location.hash.slice(1);
+
+            // The section heading says which view this is.
+            let headings = { "": "Most recent", mostliked: "Most liked", mostcomment: "Most commented", myposts: "My posts", myprivate: "My private posts", feed: "Feed" };
+            let heading = headings[hash];
+            if (heading === undefined && hash.startsWith("tag=")) {
+                let rawTag = hash.slice(4);
+                try { rawTag = decodeURIComponent(rawTag); } catch (err) { }
+                heading = "Posts tagged: " + rawTag;
+            }
+            document.getElementById("postsHeading").textContent = heading || "Most recent";
 
             switch (hash) {
                 case "mostliked":

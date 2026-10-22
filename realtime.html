@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
     <title>Realtime Chat | Skapi HTML Template</title>
     <link rel="stylesheet" href="main.css">
     <script src="https://cdn.jsdelivr.net/npm/skapi-js@latest/dist/skapi.js"></script>
@@ -130,6 +130,24 @@
             }
             chatMessages.appendChild(p);
             chatMessages.scrollTop = chatMessages.scrollHeight;
+            // On a phone the page is a column; keep its end, with the message input, in view as messages come in.
+            if (window.matchMedia("(max-width: 36rem)").matches) {
+                window.scrollTo(0, document.documentElement.scrollHeight);
+            }
+        }
+
+        // Clears the text fields now and once more after the keyboard has settled: a word still being composed by
+        // a phone keyboard (an IME) can otherwise reappear in the field after the form was reset.
+        function clearForm(form) {
+            form.reset();
+            let fields = form.querySelectorAll("input[type=text], textarea");
+            for (let field of fields) field.value = "";
+            setTimeout(() => { for (let field of fields) field.value = ""; }, 0);
+        }
+
+        // On a phone the keyboard goes away after a message is sent; on a desktop the input keeps the focus.
+        function hideKeyboard(form) {
+            if (window.matchMedia("(pointer: coarse)").matches) form.querySelector("input, textarea")?.blur();
         }
 
         function clearChat() {
@@ -301,7 +319,8 @@
             try {
                 // The form data ({ chatmsg }) is sent to everyone in the group, including this user.
                 await skapi.postRealtime(event, currentGroup);
-                event.target.reset();
+                clearForm(event.target);
+                hideKeyboard(event.target);
             } catch (err) {
                 alert(err.message);
             }
@@ -315,7 +334,8 @@
             try {
                 // With a user id instead of a group name, the message goes to that user only.
                 await skapi.postRealtime(event, sendTo.user_id);
-                event.target.reset();
+                clearForm(event.target);
+                hideKeyboard(event.target);
                 document.getElementById("privateMsgSender").close();
             } catch (err) {
                 alert(err.message);
