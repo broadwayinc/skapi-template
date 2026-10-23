@@ -47,7 +47,7 @@ When you copy this template into your own project, replace the `"<Project ID>"` 
 
 - `service.js` creates the `skapi` object every page uses. It reads the project ID, keeps the login gate (`LOGIN_REQUIRED` lists the pages that need a user), adds the project ID to links and forms (`pageUrl()`), and exposes `userReady`, a promise that resolves to the logged-in user's profile, or `null`.
 - `main.css` is one small stylesheet shared by every page. It is plain on purpose: one column, the system font, thin borders and no colours other than links, so the pages read like a document and do not get in the way of your own design.
-- The `skapi-js` library comes from `https://cdn.jsdelivr.net/npm/skapi-js@latest/dist/skapi.js`. Pin a version there if you want the pages to stay exactly as they are.
+- The `skapi-js` library comes from `https://cdn.jsdelivr.net/npm/skapi-js@2.2.17/dist/skapi.js`.
 
 ## Adding a page
 
