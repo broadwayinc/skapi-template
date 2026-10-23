@@ -44,6 +44,21 @@
         </section>
 
         <section>
+            <h2>Anonymous login</h2>
+            <p>
+                <code>skapi.anonymousLogin()</code> signs a visitor in without a sign up. It creates a temporary
+                account with no email address and no password, so the visitor can use everything that needs an
+                account, such as the <a href="realtime.html">chat</a>. The account lives while a page holds its
+                session and is deleted 30 minutes after the visitor leaves, or at once on logout. It cannot edit
+                its profile, change a password or verify an email address. The project owner turns this on with
+                <strong>Anonymous Login</strong> in the project settings.
+            </p>
+            <p>
+                <button type="button" id="guestLoginButton" onclick="guestLogin()">Continue as a guest</button>
+            </p>
+        </section>
+
+        <section>
             <h2>Signup email verification</h2>
             <p>
                 When an account is created with the <code>signup_confirmation</code> option, Skapi sends a confirmation
@@ -115,6 +130,15 @@
 
     <script>
         /*
+            skapi.anonymousLogin() creates a temporary account and logs the visitor in with it.
+            The page is reloaded afterwards so the status line shows the guest session.
+            It fails with a message when the project owner has not turned on Anonymous Login.
+        */
+        function guestLogin() {
+            skapi.anonymousLogin().then(() => location.reload()).catch((err) => alert(err.message));
+        }
+
+        /*
             userReady (from service.js) resolves to the logged in user's profile, or null.
             Show who is logged in, with a logout button.
         */
@@ -125,14 +149,25 @@
                 return;
             }
 
-            status.textContent = `You are logged in as ${user.name || user.email || user.user_id}. `;
+            // Somebody is logged in, so the guest button has nothing to do.
+            document.getElementById("guestLoginButton").disabled = true;
+
+            if (user.anonymous) {
+                /*
+                    user.anonymous is true on a temporary account made with skapi.anonymousLogin().
+                    It has no name and no email address.
+                */
+                status.textContent = "You are logged in as a guest, with a temporary account that is deleted 30 minutes after you leave. ";
+            } else {
+                status.textContent = `You are logged in as ${user.name || user.email || user.user_id}. `;
+            }
 
             let logoutButton = document.createElement("button");
             logoutButton.type = "button";
             logoutButton.textContent = "Logout";
             logoutButton.onclick = () => {
                 /*
-                    skapi.logout() ends the session.
+                    skapi.logout() ends the session. For a guest it also deletes the temporary account.
                     The page is reloaded afterwards so the status line is updated.
                 */
                 skapi.logout().then(() => location.reload()).catch((err) => alert(err.message));

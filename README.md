@@ -9,7 +9,7 @@ The same pages are described, with screenshots, under [Full Examples](https://do
 | Page | What it demonstrates |
 | --- | --- |
 | `index.html` | The menu: one entry per feature page. |
-| `account.html` | The hub of the account pages below. |
+| `account.html` | The hub of the account pages below, with a **Continue as a guest** button: `anonymousLogin()` signs a visitor in with a temporary account that is deleted 30 minutes after they leave. |
 | `signup.html`, `signup-success.html`, `login.html`, `email-verification.html`, `forgot-password.html`, `reset-password.html`, `change-password.html`, `update-profile.html`, `remove-account.html`, `recover-account.html` | Sign up, log in, verify an email address, reset or change a password, update a profile, remove and recover an account. |
 | `newsletter.html` | Let visitors subscribe to your newsletter with their email address. |
 | `inquiry.html` | A contact form that sends a message to you, the project owner. |
