@@ -187,6 +187,19 @@
         // Cached subscription status per uploader: a subscription object, or false.
         let subscription_list = {};
 
+        /*
+            What a post or a comment shows as its author.
+            A guest (a temporary account made with skapi.anonymousLogin(), user.anonymous is true) has no name
+            and no email address, so it is shown as "Guest". Everyone else shows their name, or their email
+            address when they have no name and the address is public.
+        */
+        function authorLabel(user) {
+            if (user.anonymous) {
+                return "Guest";
+            }
+            return user.name || user.email || "User";
+        }
+
         function getUserInfo(user_id) {
             if (!userInfo[user_id]) {
                 userInfo[user_id] = skapi.getUsers({ searchFor: "user_id", value: user_id })
@@ -376,7 +389,7 @@
                     <button type="button" class="more-comments" hidden>Show more comments</button>
                 </section>`;
 
-            article.querySelector(".uploader").textContent = uploader.name || uploader.email || "User";
+            article.querySelector(".uploader").textContent = authorLabel(uploader);
 
             let time = article.querySelector("time");
             time.dateTime = new Date(p.updated).toISOString();
@@ -505,7 +518,7 @@
         function createCommentElement(commenter, updated, text) {
             let li = document.createElement("li");
             let author = document.createElement("strong");
-            author.textContent = commenter.name || commenter.email || "User";
+            author.textContent = authorLabel(commenter);
             let time = document.createElement("time");
             time.dateTime = new Date(updated).toISOString();
             time.textContent = new Date(updated).toLocaleString();

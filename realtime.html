@@ -113,8 +113,17 @@
         const chatMessages = document.getElementById("chatMessages");
         const participantList = document.getElementById("participants");
 
+        /*
+            What a user is called on this page.
+            A guest (a temporary account made with skapi.anonymousLogin(), user.anonymous is true) has no name
+            and no email address, so it is "Guest". Everyone else shows their name, or their email address
+            when they have no name and the address is public.
+        */
         function displayName(user) {
-            return user?.name || user?.email || user?.user_id || "User";
+            if (user?.anonymous) {
+                return "Guest";
+            }
+            return user?.name || user?.email || "User";
         }
 
         // A line in the chat: "<name>: <text>", or a notice such as "<name> joined".

@@ -119,8 +119,17 @@
         let penDown = false;
         let last = null;
 
+        /*
+            What a user is called on this page.
+            A guest (a temporary account made with skapi.anonymousLogin(), user.anonymous is true) has no name
+            and no email address, so it is "Guest". Everyone else shows their name, or their email address
+            when they have no name and the address is public.
+        */
         function displayName(user) {
-            return user?.name || user?.email || user?.user_id || "User";
+            if (user?.anonymous) {
+                return "Guest";
+            }
+            return user?.name || user?.email || "User";
         }
 
         /*
