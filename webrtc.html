@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
     <title>RTC Video Chat | Skapi HTML Template</title>
     <link rel="stylesheet" href="main.css">
-    <script src="https://cdn.jsdelivr.net/npm/skapi-js@2.2.17/dist/skapi.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/skapi-js@2.2.21/dist/skapi.js"></script>
     <script src="service.js"></script>
 </head>
 
@@ -357,8 +357,10 @@
 
                     let videoCall = document.getElementById("el_video_call");
                     let callList = document.getElementById("el_dl_calllist");
-                    if (["disconnected", "failed", "closed"].includes(e.state)) {
-                        // Also when the other user rejected or hung up.
+                    // "disconnected" and "failed" are not the end of the call: the SDK brings the connection back
+                    // (see "reconnecting", "reconnected" and "lost" below). "closed" is the end, after a hang-up
+                    // on either side, a rejection, or a connection that could not be brought back.
+                    if (e.state === "closed") {
                         exitFullscreen(false);
                         videoCall.hidden = true;
                         callList.hidden = false;
@@ -376,6 +378,20 @@
                     }
                     break;
                 }
+
+                case "reconnecting":
+                    // The connection dropped. The call stays open while the SDK restarts it, for up to 15 seconds.
+                    addChatLine("", "The connection dropped. Reconnecting...");
+                    break;
+
+                case "reconnected":
+                    addChatLine("", "Connected again.");
+                    break;
+
+                case "lost":
+                    // The connection could not be brought back. The call closes right after this ("closed" above).
+                    addChatLine("", "The connection was lost.");
+                    break;
 
                 case "message":
                     // A text message from the other user, over the default data channel.
